@@ -1,0 +1,51 @@
+var autoMusic={
+	deg:0,
+	timer:null,
+	msPic:document.getElementById("bg_music"),
+	myMusic:document.getElementById("myMusic"),
+	playing:false,
+	interval:10,
+	rotate:function (){
+		this.deg+=3;
+		this.msPic.style.transform="rotate("+this.deg+"deg)";
+		this.msPic.style.webkitTransform="rotate("+this.deg+"deg)";
+		this.msPic.style.msTransform="rotate("+this.deg+"deg)";
+		this.timer&&(clearTimeout(this.timer));
+		this.timer=setTimeout(function(){
+			autoMusic.rotate();
+		},this.interval);
+	},
+	musicIsStart:function(){
+		if(this.myMusic.currentTime!=0){
+				this.rotate();
+				this.playing=true;
+			}else{
+				setTimeout(function(){
+					autoMusic.musicIsStart();
+				},100);
+			}
+	},
+	play:function(){
+		this.myMusic.play();
+		this.musicIsStart();
+	},
+	init:function(){
+		var ob=this;
+		ob.msPic.onclick=function(){
+			if (ob.playing){
+				ob.myMusic.pause();
+				clearTimeout(ob.timer);
+				ob.timer=null;
+				ob.playing=!ob.playing;
+			}else{
+				ob.myMusic.play();
+				ob.playing=!ob.playing;
+				ob.rotate();
+			}
+		}
+		$('html').one('touchstart',function(){
+			ob.play();
+		});
+		ob.play();
+	}
+}
