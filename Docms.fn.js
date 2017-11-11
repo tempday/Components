@@ -10,30 +10,29 @@
 		elems:[],
 		length:0,
 		init:function(selector,parent){
-			this.getElems(selector,parent);
+			this.getElem(selector,parent);
 		},
-		//兼容ie7+,按("#id")|(".class")|("tagName") 获取元素,parent:[可选]值类型可以是3种,1.DM对象,2.dom对象,3.选择器字符串
+		//兼容ie7+,按("#id")|(".class")|("tagName") 获取元素,如果缺少父元素parent默认是从document开始查找,如果是按id查找返回的是单个dom对象,否则返回的是dom数组
 		//?多个选择器用逗号分隔("#id,.class")
 		//?返回的元素是用单个对象储存还是统一放入一个数组中暂时未定
-		getElems:function(selector,parent){
+		getElem:function(selector,parent){
 			if(typeof(selector)==="object"){
-				this.elems.push(selector);
-				return this;
+				return this.elems.push(selector);
 			}else if(this.elems.length){
-				return this;
+				return this.elems;
 			}
 			(parent&&parent.nodeType==1)||(parent=document);
 			if(selector==undefined||selector==""){
 				console.info("info:selector is undefined");
-				return this;
+				return [];
 			}else if(typeof(selector)!="string"){
 				console.warn("warning:selector is not a String");
-				return this;
+				return [];
 			}
 			if(/^#[^\s]*$/.test(selector)){
 				this.elems[this.elems.length]=d.getElementById(selector.replace("#",""));
 			}
-			if(/^[A-z\*]*$/.test(selector)){
+			if(/^[A-z]*$/.test(selector)){
 				this.elems=parent.getElementsByTagName(selector);
 			}
 			if(/^\.[^\s]*$/.test(selector)){
@@ -48,45 +47,40 @@
 					}
 				}
 			}
-			this.resetElems();
-			return this;
-		},//重置元素列表
-		resetElems:function(doms){
-			doms&&(this.elems=doms);
-			if(this.length>this.elems.length){
-				for(var i=0;i<this.length-this.elems.length;i++){
-					delete this[this.length-1-i]
-				}
-			}
 			this.length=this.elems.length;
 			for(var i=0;i<this.elems.length;this[i]=this.elems[i++]);
 			this.elems=Array.prototype.slice.call(this.elems);
+			return this;
 		},
-		//兼容ie7+,按属性获取元素,1.attrType:属性类型;2.attr:属性值[可选],如果元素类型不为空则此参数必须设置可以为"";3.tagName:查找标签类型[可选],如果缺省则查找全部类型
-		getElemsByAttr:function(attrType,attr,tagName){
-			var parent=this.elems[0]||d,
-				doms=[],tags,
-				reg=this.regOfIndStr(attr),
-				value,
-				typeLis=[],
-				attrLis=[];
+		//兼容ie7+,按属性获取元素
+		getElemByAttr:function(tagName,attrType,attr,parentId){
+			parentId=parentId||"";
 			attr=attr||"";
-			tagName=tagName||"*";
-			doms=Docms.fun.getElems(tagName,parent).elems;
-			for(var i=0;i<doms.length;i++){
-				value=attrType=="class"?doms[i].className:doms[i].getAttribute(attrType);
+			var parent=d.getElementById(parentId),tags;
+			if(parent){
+				tags=parent.getElementsByTagName(tagName);
+			}else{
+				tags=d.getElementsByTagName(tagName);
+			}
+			var reg=this.regOfIndStr(attr);
+			var value,typeLis=[],attrLis=[];
+			for(var i=0;i<tags.length;i++){
+				value=attrType=="class"?tags[i].className:tags[i].getAttribute(attrType);
 				if(value){//判断属性是否有效,将带属性的元素放入数组
 					value=value.replace(/^\s*|\s*$/g,"");
-					value&&(typeLis.push(doms[i]));
+					value&&(typeLis.push(tags[i]));
 					if(attrType=="class"){
-						attr&&reg.test(value)&&(attrLis.push(doms[i]));
+						attr&&reg.test(value)&&(attrLis.push(tags[i]));
 					}else {
-						value==attr&&(attrLis.push(doms[i]));
+						value==attr&&(attrLis.push(tags[i]));
 					}
 				}
 			}
-			attr?this.resetElems(attrLis):this.resetElems(typeLis);
-			return this;
+			if(attr){
+				return attrLis;
+			}else{
+				return typeLis;
+			}
 		},
 		//添加class
 		addClass:function(cls){
@@ -120,27 +114,10 @@
 			attr=attr||"";
 			return new RegExp("^"+arg+"$|^"+arg+"(?=\\s)|(?:\\s)"+arg+"(?=\\s+)|(?:\\s)"+arg+"$",attr.toLowerCase());
 		},
-		addEvent:function(type,fn,bool){
-			bool=bool||false;
-			if(this.elems.length){
-				for(var i=0;i<this.elems.length;i++){
-					if (this.elems[i].addEventListener) {
-						this.elems[i].addEventListener(type,fn,bool); 
-					}else if (this.elems[i].attachEvent){
-						this.elems[i].attachEvent('on'+type,fn);
-					}
-				}
-			}	
-		},
 		isElems:function(){
 			//return this[0].length?:this.isArray(this[0]);
-		},
-		find:function(){
-		},
-		on:function(){
-		},
-		each:function(){
 		}
+		
 	}//end Docms
 	//兼容ie7/8,firefox:获取事件或事件目标,ev=0:返回事件[默认可不填],ev=1:返回目标
 	Docms.getEventTarget=function(ev){
@@ -153,9 +130,7 @@
 			return e;
 		}
 	}
-	Docms.prototype=Docms.fun;
-	Docms.fun.init.prototype=Docms.prototype;
-	DM=w.Docms=Docms;
+	
 }(window,document);
 
 //-------------------------------------------------------------------------------------------------------------
