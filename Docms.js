@@ -10,50 +10,69 @@
 		init:function(selector,parentArg){
 			this.elems=[];
 			this.count=0;
+			this.tempElems=[];
+			//this.supElems=[];
+			//this.subElems=[];
+			this.isTemp=false;
+			this.source=[];
+			this.parent=null;
+			this.children=[];
 			this.getElems(selector,parentArg);
 		},
-		//兼容ie7+,按("#id")|(".class")|("tagName") 获取元素,parentArg:[可选]值类型可以是3种,1.DM对象,2.dom对象,3.选择器字符串;最后获得的元素放入数组elems中
+		//兼容ie7+,按("#id")|(".class")|("tagName.class")|("tagName") 获取元素,
+			//parentArg:[可选]值类型可以是3种,1.DM对象,2.dom对象,3.选择器字符串;最后获得的元素放入数组elems中
 		//?多个选择器用逗号分隔("#id,.class")
 		getElems:function(selector,parentArg){
 			this.elems=[];
 			//父元素暂时只支持单对象
 			typeof(parentArg)=="string"&&(parentArg=this.getElems(parentArg).elems[0]);
+			this.elems=[];
 			if(!parentArg || parentArg.nodeType!==1){
 				//传入的父对象是非dom元素提示错误
-				parentArg && parentArg.nodeType!==1&& parentArg.nodeType!==9&&console.error('getElems() error: invalid parentArg');
+				parentArg && parentArg.nodeType!==1&& parentArg.nodeType!==9&&console.error('Docms tips:getElems() invalid parentArg');
 				parentArg=d;
 			}
+			//判断selector的4个条件:1.未定义或是空字符;2.是对象且长度大于零;3.是对象且节点类型为1;4.字符串
 			if(selector==undefined||selector==""){
-				console.info("getElems() info:selector is undefined");
+				console.info("Docms tips:getElems() selector is undefined");
 				return this;
-			}
-			if(typeof(selector)==="object"&&selector.length!=0){
+			}else if(typeof(selector)==="object"&&selector.length>0){
 				this.elems=selector;
 			}else if(selector.nodeType===1){
 				this.elems[0]=selector;
 			}else{
 				if(typeof(selector)!="string"){
-					console.warn("getElems() warning:selector is not a String");
+					console.warn("Docms tips:getElems() selector is not a String");
 					return this;
 				}
 				//按id获取元素
-				/^#[^\s]*$/.test(selector)&&(
+				/^#[^\s\.]+$/.test(selector)&&(
 					this.elems[0]=d.getElementById(selector.replace("#",""))
 				);
 				//按标签名获取元素
-				/^!?[A-z]*[1-6]?$|^\*$/.test(selector)&&(
+				/^!?[A-z]+[1-6]?$|^\*$/.test(selector)&&(
 					this.elems=parentArg.getElementsByTagName(selector)
 				);
 				//按class获取元素
-				if(/^\.[^\s]*$/.test(selector)){
-					var selector=selector.replace(".","");
-					if(d.getElementsByClassName){
-						this.elems=parentArg.getElementsByClassName(selector);
-					}else{
-						var tags=parentArg.getElementsByTagName("*"),
-							reg=Docms.regOfIndStr(selector);
+				if(/^([A-z]+[1-6]?)?\.[^\s]+$/.test(selector)){
+					var selArr=selector.match(/^([A-z]+[1-6]?)|\.|[^\s\.]+$/g);
+					//var selector=selector.replace(".","");
+					var tags,reg;
+					if(selArr.length==3){
+						tags=parentArg.getElementsByTagName(selArr[0]);
+						reg=Docms.regOfIndStr(selArr[2]);
 						for(var i=0;i<tags.length;i++){
 							reg.test(tags[i].className)&&(this.elems.push(tags[i]));
+						}
+					}else if(selArr.length==2){
+						if(d.getElementsByClassName){
+							this.elems=parentArg.getElementsByClassName(selArr[1]);
+						}else{
+							tags=parentArg.getElementsByTagName("*"),
+								reg=Docms.regOfIndStr(selArr[1]);
+							for(var i=0;i<tags.length;i++){
+								reg.test(tags[i].className)&&(this.elems.push(tags[i]));
+							}
 						}
 					}
 				}
@@ -61,7 +80,7 @@
 			this.resetElems();
 			return this;
 		},
-		//重置元素列表
+		//内部api:重置元素列表
 		resetElems:function(doms){
 			doms&&(this.elems=doms);
 			//清除getByAttr后多余的this[n]
@@ -81,21 +100,29 @@
 				for(var i=0,_temp=[];i<this.elems.length;i++){
 					this[i]=this.elems[i];
 					_temp.push(this.elems[i]);
-				};
+				}
 				this.elems=_temp;
 				_temp=null;
+			}
+			//两个默认属性
+			if(this.elems[0]){
+				this.parent=this.elems[0].parentNode;
+				this.children=this.elems[0].children;
+			}else{
+				this.parent=null;
+				this.children=[];
 			}
 		},
 		//兼容ie7+,按属性获取后代元素,1.attrType:属性类型;2.attr:属性值[可选],如果元素类型不为空则此参数必须设置可以为"";3.tagName:查找标签类型[可选],如果缺省则查找全部类型
 		getByAttr:function(attrType,attr,tagName){
 			//父元素时当前元素[0],如果当前元素是空则父元素是document
+			attr=attr||"";
 			var parentArg=this.elems[0]||d,
 				doms=[],
 				reg=Docms.regOfIndStr(attr),
 				value,
 				typeLis=[],
 				attrLis=[];
-			attr=attr||"";
 			tagName=tagName||"*";
 			doms=Docms.fun.getElems(tagName,parentArg).elems;
 			for(var i=0;i<doms.length;i++){
@@ -114,16 +141,16 @@
 			attr?this.resetElems(attrLis):this.resetElems(typeLis);
 			return this;
 		},
-		//添加class
+		//添加class,自动遍历查寻结果中所有元素
 		addClass:function(cls){
 			if(this.elems.length){
 				for(var i=0;i<this.elems.length;i++){
 					this.elems[i].className=this.elems[i].className==""?cls:this.elems[i].className+" "+cls;
 				}
-			}		
+			}
 			return this;
 		},
-		//移除class
+		//移除class,自动遍历查寻结果中所有元素
 		removeClass:function(cls){
 			var reg=Docms.regOfIndStr(cls,"g");
 			if(this.elems.length){
@@ -144,16 +171,101 @@
 						this.elems[i].attachEvent('on'+type,fn);
 					}
 				}
-			}	
+			}
 		},
 		isElems:function(){
 			//return this[0].length?:this.isArray(this[0]);
 		},
-		find:function(){
+		//fetch,查找父元素或子元素时都会将旧结果放入栈底,将当前结果置顶
+		
+		//按下标选择查询结果中的元素
+		fetch:function(n){
+			if(n>=this.elems.length){
+				throw new RangeError("Docms tips:fetch() n is out of index.");
+			}
+			//判断当前是否已链式操作,如果是就要从临时文件夹获取元素进行操作,否则先将原结果储存起来,再从源文件夹获取元素进行操作
+			this.isTemp?this.tempElems=this.elems:this.tempElems=this.source=this.elems;
+			//避免数组关联操作先重置elems,如果不需要修改原数组elem则elem不需要重置
+			this.elems=[];
+			this.elems[0]=this.isTemp?this.tempElems[n]:this.source[n];
+			this.isTemp=true;
+			this.resetElems();
+			return this;
 		},
-		on:function(){
+		//查找父元素
+		sup:function(n){
+			if(!this.elems.length){return this;}
+			this.isTemp?this.tempElems=this.elems:this.tempElems=this.source=this.elems;
+			this.elems=[];
+			this.elems[0]=this.isTemp?this.tempElems[0]:this.source[0];
+			this.isTemp=true;
+			//父元素根据n的数值进行n+1次获取
+			n=n||0;
+			do{
+				this.elems[0]=this.elems[0].parentNode;
+			}while(n--);
+			this.resetElems();
+			return this;
 		},
-		each:function(){
+		//查找子元素
+		sub:function(){
+			if(!this.elems.length){return this;}
+			this.isTemp?this.tempElems=this.elems:this.tempElems=this.source=this.elems;
+			this.elems=this.elems[0].children;
+			this.isTemp=true;
+			this.resetElems();
+			return this;
+		},
+		//查找所有后代元素,如果bool为true,将包含当前元素
+		all:function(bool){
+			if(!this.elems.length){return this;}
+			this.isTemp?this.tempElems=this.elems:this.tempElems=this.source=this.elems;
+			this.isTemp=true;
+			this.elems=this.elems[0].getElementsByTagName('*');
+			this.resetElems();
+			if(bool){
+				this.elems.unshift(this.tempElems[0]);
+				this.resetElems();
+			}
+			return this;
+		},
+		//将结果集设置成初始状态
+		me:function(){
+			if(this.isTemp){
+				this.isTemp=false;
+				this.tempElems=[];
+				this.elems=this.source;
+				this.resetElems();
+			}
+			return this;
+		},
+		//在结果中查找带指定属性的元素
+		hasAttr:function(attrType,attr){
+			if(!this.elems.length){return this;}
+			this.isTemp=true;
+			this.tempElems=this.elems;
+			//父元素时当前元素[0],如果当前元素是空则父元素是document
+			attr=attr||"";
+			var reg=Docms.regOfIndStr(attr),
+				value,
+				typeLis=[],
+				attrLis=[];
+			for(var i=0;i<this.elems.length;i++){
+				//ie7下用api获取class写法getAttribute("className")
+				value=attrType=="class"?this.elems[i].className:this.elems[i].getAttribute(attrType);
+				if(value){//判断属性是否有效,将带属性的元素放入数组
+					value=value.replace(/^\s*|\s*$/g,"");
+					value&&(typeLis.push(this.elems[i]));
+					if(attrType=="class"){
+						attr&&reg.test(value)&&(attrLis.push(this.elems[i]));
+					}else {
+						value==attr&&(attrLis.push(this.elems[i]));
+					}
+				}
+			}
+			this.elems=[];
+			attr?this.resetElems(attrLis):this.resetElems(typeLis);
+			return this;
 		}
 	}//end Docms
 	//兼容ie7/8,firefox:获取事件或事件目标,ev=0:返回事件[默认可不填],ev=1:返回目标
@@ -173,7 +285,7 @@
 		attr=attr.replace(/\s/g,"").toLowerCase();
 		if(/[^gims]/ig.test(attr)){
 			//抛出异常并退出
-			throw new TypeError("regOfIndStr() SyntaxError: Invalid RegExp ["+attr+"]");
+			throw new TypeError("Docms tips:regOfIndStr() Invalid RegExp ["+attr+"]");
 		}
 		return new RegExp("^"+arg+"$|^"+arg+"(?=\\s)|(?:\\s)"+arg+"(?=\\s+)|(?:\\s)"+arg+"$",attr);
 	}

@@ -1,3 +1,0 @@
-Docms.isArray = function(r) {
-    return Array.isArray ? Array.isArray(r) : "[object Array]" === Object.prototype.toString.call(r);
-};
