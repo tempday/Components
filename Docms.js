@@ -6,15 +6,16 @@
 		return new Docms.fun.init(selector,origin);
 	}
 	Docms.fun={
-		name:"Docms v1.0",
+		name:"Docms by lglong519",
 		init:function(selector,origin){
 			this.elems=[];//储存当前元素
 			this.count=0;//当前元素的数量
 			this.tempElems=[];//临时数组
 			this.isChaining=false;//是否正在链式操作
-			this.source=[];//Docms()对象首次获取的元素
 			this.parent=null;//elems 第一个元素的父元素
 			this.children=[];//elems 第一个元素的子元素
+			this.source=[];//Docms()对象首次获取的元素
+			this.elemStack=[];
 			this.getElems(selector,origin);//实例化时立即进行第一次元素获取
 		},
 		//兼容ie7+,按("#id")|(".class")|("tag.class")|("tag") 获取元素,
@@ -45,7 +46,7 @@
 				}
 				//按id获取元素
 				/^#[^\s\.]+$/.test(selector)&&(
-					this.elems[0]=d.getElementById(selector.replace("#",""))
+					d.getElementById(selector.replace("#",""))&&(this.elems[0]=d.getElementById(selector.replace("#","")))
 				);
 				//按标签名获取元素
 				/^!?[A-z]+[1-6]?$|^\*$/.test(selector)&&(
