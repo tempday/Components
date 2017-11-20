@@ -1,12 +1,12 @@
 /*Created by lglong519--2017/11/09*/
 
-//document manipulation set ==Docms
-~function(w,d){
+//document manipulation set
+;~function(w,d){
 	function Docms(selector,origin){
 		return new Docms.fun.init(selector,origin);
 	}
 	Docms.fun={
-		name:"Docms by lglong519",
+		name:"document manipulation set",
 		init:function(selector,origin){
 			this.elems=[];//储存当前元素
 			this.count=0;//当前元素的数量
@@ -19,7 +19,8 @@
 			this.getElems(selector,origin);//实例化时立即进行第一次元素获取
 		},
 		//兼容ie7+,按("#id")|(".class")|("tag.class")|("tag") 获取元素,
-			//origin:[可选]值类型可以是3种,1.DM对象,2.dom对象,3.选择器字符串;最后获得的元素放入数组elems中
+			//origin:[可选]值类型可以是3种,1.DM对象,2.dom对象,3.选择器字符串;
+			//最后获得的元素放入数组elems中
 		//?多个选择器用逗号分隔("#id,.class")
 		getElems:function(selector,origin){
 			this.elems=[];
@@ -27,7 +28,7 @@
 			typeof(origin)=="string"&&(origin=this.getElems(origin).elems[0]);
 			this.elems=[];
 			if(!origin || origin.nodeType!==1){
-				//传入的父对象是非dom元素提示错误
+				//传入的父对象非dom元素提示错误
 				origin && origin.nodeType!==1&& origin.nodeType!==9&&console.error('Docms tips:getElems() invalid origin');
 				origin=d;
 			}
@@ -35,17 +36,27 @@
 			if(selector==undefined||selector==""){
 				//console.info("Docms tips:getElems() selector is undefined");
 				return this;
-			}else if(typeof(selector)==="object"&&selector.length>0&&selector.nodeType!=1&&selector.nodeType!=9){
-				this.elems=selector;
-			}else if(selector.nodeType===1){
-				this.elems[0]=selector;
+			}
+			//对象类型
+			if(typeof(selector)==="object"){
+				//Docms 子类
+				if(selector instanceof Docms.fun.init){
+					this.elems=selector.elems;
+				//dom元素节点或者文档节点
+				}else if(selector.nodeType===1||selector.nodeType===9){
+					this.elems[0]=selector;
+				//数组或类数组
+				}else if(selector.length>0){
+					this.elems=selector;
+				}
+			//字符串类型:css选择器
 			}else{
 				if(typeof(selector)!="string"){
 					//console.warn("Docms tips:getElems() selector is not a String");
 					return this;
 				}
 				//按id获取元素
-				/^#[^\s\.]+$/.test(selector)&&(
+				/^#[^\s\.\#]+$/.test(selector)&&(
 					d.getElementById(selector.replace("#",""))&&(this.elems[0]=d.getElementById(selector.replace("#","")))
 				);
 				//按标签名获取元素
@@ -237,16 +248,23 @@
 			exp=a,bool=b;
 			this.isChaining?this.tempElems=this.elems:this.tempElems=this.source=this.elems;
 			this.isChaining=true;
-			//先获取所有的后代元素
-			this.elems=this.elems[0].getElementsByTagName('*');
-			//再根据筛选条件对结果再次进行筛选
-			exp&&(this.elems=Docms.elemsFilter(this.elems,exp));
-			this.resetElems();
+			var validElems=[];
+			for(var i=0,_temps;i<this.elems.length;i++){
+				_temps=[];
+				//先获取所有的后代元素
+				_temps=this.elems[i].getElementsByTagName('*');
+				//再根据筛选条件对结果再次进行筛选
+				exp&&(_temps=Docms.elemsFilter(_temps,exp));
+				exp||(_temps=Docms.arrConvert(_temps));
+				validElems=validElems.concat(_temps);
+			}
 			//是否包含当前元素
 			if(bool){
-				this.elems.unshift(this.tempElems[0]);
-				this.resetElems();
+				//this.elems.unshift(this.tempElems[0]);
+				validElems=this.elems.concat(validElems);
 			}
+			this.elems=validElems;
+			this.resetElems();
 			return this;
 		},
 		//将结果集设置成初始状态
@@ -264,7 +282,7 @@
 			if(!this.elems.length){return this;}
 			this.isChaining=true;
 			this.tempElems=this.elems;
-			//父元素时当前元素[0],如果当前元素是空则父元素是document
+			//父元素是当前元素[0],如果当前元素是空则父元素是document
 			attr=attr||"";
 			var reg=Docms.regOfIndStr(attr),
 				value,
@@ -286,6 +304,81 @@
 			this.elems=[];
 			attr?this.resetElems(attrLis):this.resetElems(typeLis);
 			return this;
+		},
+		//遍历当前全部元素,fn有两个默认参数,第一个是每个元素对应的下标i,第二个是i对应的dom类型元素
+		each:function(fn){
+			//遍历所有元素,将下标i和i对应的元素当作参数传入fn并将this指向当前遍历到的元素
+			for(var i=0;i<this.elems.length;i++){
+				this.elems[i].fun=fn;
+				this.elems[i].fun(i,this.elems[i]);
+			}
+			return this;
+		},
+		//获取/设置样式,type:null/object/string,val:cssValue
+		css:function(type,val){
+			var reg=/height|width|margin|padding|font|left|right|top|bottom/;
+			if(typeof(type)=='object'){
+				for(var i in type){
+					if(reg.test(i)&&typeof(type[i])=='number'&&type[i]!=0){
+						type[i]+='px';
+					}
+					//兼容ie78
+					if(i=='opacity'){
+						this.elems[0].style.filter='alpha(opacity='+type[i]*100+')';
+					}
+					this.elems[0].style[i]=type[i];
+					
+				}
+				return this;
+			}else{
+				if(val){
+					if(typeof(type)=='string'){
+						if(type=='opacity'){
+							this.elems[0].style.filter='alpha(opacity='+val*100+')';
+						}
+						this.elems[0].style[type]=val;
+						return this;
+					}else if(reg.test(type)&&typeof(val)=='number'&&val!=0){
+						this.elems[0].style[type]=val+'px';
+						return this;
+					}
+				}else{
+					if(window.getComputedStyle){
+						return type?window.getComputedStyle(this.elems[0] , null)[type]:
+							window.getComputedStyle(this.elems[0] , null);
+					}else{
+						return type?this.elems[0].currentStyle[type]:this.elems[0].currentStyle;
+					}
+				}
+			}
+		},
+		//操作链断开,返回属性
+		//返回元素的实际高度,即使设置了box-sizing
+		height:function(n){
+			n=n||0;
+			return this.elems[n].offsetHeight;
+		},
+		width:function(n){
+			n=n||0;
+			return this.elems[n].offsetWidth;
+		},
+		//元素内容
+		html:function(m){
+			if(m!=undefined){
+				this.elems[0].innerHTML=m;
+				return this;
+			}else{
+				return this.elems[0].innerHTML;
+			}
+		},
+		//元素value
+		val:function(m){
+			if(m!=undefined){
+				this.elems[0].value=m;
+				return this;
+			}else{
+				return this.elems[0].value;
+			}
 		}
 	};//end Docms
 	//兼容ie7/8,firefox:获取事件或事件目标,ev=0:返回事件[默认可不填],ev=1:返回目标
@@ -303,7 +396,7 @@
 	Docms.regOfIndStr=function(arg,attr){
 		attr=attr||"";
 		attr=attr.replace(/\s/g,"").toLowerCase();
-		if(/[^gims]/ig.test(attr)){
+		if(/[^gims]/i.test(attr)){
 			//抛出异常并退出
 			throw new TypeError("Docms tips:regOfIndStr() Invalid RegExp ["+attr+"]");
 		}
@@ -320,7 +413,7 @@
 		}
 		return bool?parentArg.querySelectorAll(selector):parentArg.querySelector(selector);
 	}
-	//获取p元素的某个子元素curr所在的下标
+	//获取curr元素在兄弟元素中所在的下标
 	Docms.index=function(curr){
 		curr instanceof Docms.fun.init&&(curr=curr[0]);
 		var childs=curr.parentNode.children;
@@ -330,6 +423,57 @@
 			}
 		}
 		return -1;
+	}
+	Docms.getCss=function(elem,css){
+		if(window.getComputedStyle){
+			return css?window.getComputedStyle(elem , null)[css]:
+				window.getComputedStyle(elem , null);
+		}else{
+			return css?elem.currentStyle[css]:elem.currentStyle;
+		}
+	}
+	//获取文档顶部与窗口顶部的距离,参数如果不为零则设置文档的y轴偏移量为axisY
+	Docms.wTop=function(axisY){
+		if(axisY){
+			window.scrollTo(Docms.wLeft(),axisY);
+			return Docms.wTop();
+		}
+		var y=[];
+		if (document.documentElement) {
+			//ie789 不支持
+			y[y.length] = document.documentElement.scrollTop || 0;
+		}
+		if (document.body) {
+			//基本不支持,除了u和Safari
+			y[y.length] = document.body.scrollTop || 0;
+		}
+		//ie 不支持
+		y[y.length] = window.scrollY || 0;
+		return Math.max.apply(this,y);
+	}
+	//获取文档左侧与窗口左侧的距离,参数如果不为零则设置文档的x轴偏移量为axisX
+	Docms.wLeft=function(axisX){
+		if(axisX){
+			window.scrollTo(axisX,Docms.wTop());
+			return Docms.wLeft();
+		}
+		var y=[];
+		if (document.documentElement) {
+			y[y.length] = document.documentElement.scrollLeft || 0;
+		}
+		if (document.body) {
+			y[y.length] = document.body.scrollLeft || 0;
+		}
+		y[y.length] = window.scrollX || 0;
+		return Math.max.apply(this,y);
+	}
+	//文档可视区的高度,不包括滚动条
+	Docms.wHeight=function(){
+		return document.documentElement.clientHeight;
+	}
+	//文档可视区的宽度,不包括滚动条
+	Docms.wWidth=function(){
+		return document.documentElement.clientWidth
 	}
 	//格式化选择器参数
 	Docms.formatSelector=function(exp){
@@ -392,35 +536,47 @@
 			}
 			return _temp;
 		}else{
-			console.error("Docms tips:testElems() invalid elemsArr+exp");
+			console.info("Docms tips:testElems() invalid elemsArr+exp");
 			return [];
 		}
 	}
-	//1.定义ajax函数
+	//兼容ie7:类数组转换
+	Docms.arrConvert=function(arr){
+		try{
+			arr=Array.prototype.slice.call(arr);
+		}catch(e){
+			for(var i=0,_temp=[];i<arr.length;i++){
+				_temp[i]=arr[i];
+			}
+			arr=_temp;
+		}
+		return arr;
+	}
+	//定义ajax函数
 	Docms.ajax=function(config) {
 		//2.使用merge将config初始化合并一下
 		config = merge(config);
 		//3.创建ajax对象
-		var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject("microsoft.XMLHTTP");
+		var xhr = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject("microsoft.XMLHTTP"),
 		//4.先去判断请求是否为post
-		var isPost = /post/i.test(config.type);
+			isPost = /post/i.test(config.type);
 		//4.1无论是get还是post都要把json数据转化成get参数类型
 		config.data = jsonToGet(config.data);
 		//5.如果是get方式要判断是否要缓存，如果不要缓存就加时间戳。向地址上加时间的时候要判断之前是否有？号
-		if (!isPost) {
-			config.url += (config.url.indexOf("?") > -1 ? "&" : "?") + (config.cache ? "" : new Date().getTime() + "=1") + "&" + config.data;
-		}
-		//6.打开地址
+		isPost||(
+			config.url += (config.url.indexOf("?") > -1 ? "&" : "?") + (config.cache ? "" : new Date().getTime() + "=1") + "&" + config.data
+		);
+		//6.打开地址,兼容Firefox:open方法要放在setRequestHeader之前
 		xhr.open(config.type, config.url, config.async);
 		//7.如果是post
-		if (isPost) {
+		isPost&&(
 			//8.添加请求头
-			xhr.setRequestHeader("content-type", "application/x-www-form-urlencoded");
-		}
+			xhr.setRequestHeader("content-type", "application/x-www-form-urlencoded")
+		);
 		//9.执行发送之前的回调函数，要执行回调函数一定要判断它是不是函数
-		if (typeof config.beforeSend == "function") {
-			config.beforeSend();
-		}
+		typeof config.beforeSend == "function"&&(
+			config.beforeSend()
+		);
 		//10.发送数据
 		xhr.send(config.data);
 		//11.添加监听事件
@@ -475,27 +631,30 @@
 	}
 	Docms.prototype=Docms.fun;
 	Docms.fun.init.prototype=Docms.prototype;
-	// Docms.fun.init.prototype=Docms.fun;
-	DM=w.Docms=Docms;
+	if(w.DM||w.Docms){
+		throw new Error('Docms tips:Object Docms|DM exist!');
+	}else{
+		DM=w.Docms=Docms;
+	}
 }(window,document);
 
 //-------------------------------------------------------------------------------------------------------------
 
 //兼容ie7/8,源自developer.mozilla.org
 if (!Function.prototype.bind) {
-		Function.prototype.bind = function(oThis) {
-			if (typeof this !== "function") {
-				throw new TypeError("Function.prototype.bind");
-			}
-			var aArgs = Array.prototype.slice.call(arguments, 1),
-					fToBind = this,
-					fNOP = function() {},
-					fBound = function() {
-						return fToBind.apply(this instanceof fNOP && oThis ? this : oThis,
-								aArgs.concat(Array.prototype.slice.call(arguments)));
-					};
-			fNOP.prototype = this.prototype;
-			fBound.prototype = new fNOP();
-			return fBound;
-		};
-	}
+	Function.prototype.bind = function(oThis) {
+		if (typeof this !== "function") {
+			throw new TypeError("Function.prototype.bind");
+		}
+		var aArgs = Array.prototype.slice.call(arguments, 1),
+				fToBind = this,
+				fNOP = function() {},
+				fBound = function() {
+					return fToBind.apply(this instanceof fNOP && oThis ? this : oThis,
+							aArgs.concat(Array.prototype.slice.call(arguments)));
+				};
+		fNOP.prototype = this.prototype;
+		fBound.prototype = new fNOP();
+		return fBound;
+	};
+}
