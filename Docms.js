@@ -1,4 +1,4 @@
-/*Created by lglong519--2017/11/09*/
+/*Created by lglong519*/
 
 //document manipulation set
 ;~function(w,d){
@@ -54,6 +54,11 @@
 				if(typeof(selector)!="string"){
 					//console.warn("Docms tips:getElems() selector is not a String");
 					return this;
+				}
+				if(/^\s*<.*?>\s*$/.test(selector)){
+					var _tempTag=d.createElement('div');
+					_tempTag.innerHTML=selector;
+					this.elems=_tempTag.children;
 				}
 				//按id获取元素
 				/^#[^\s\.\#]+$/.test(selector)&&(
@@ -309,10 +314,27 @@
 		each:function(fn){
 			//遍历所有元素,将下标i和i对应的元素当作参数传入fn并将this指向当前遍历到的元素
 			for(var i=0;i<this.elems.length;i++){
-				this.elems[i].fun=fn;
-				this.elems[i].fun(i,this.elems[i]);
+				this.elems[i].fn=fn;
+				this.elems[i].fn(i,this.elems[i]);
+				delete this.elems[i].fn;
 			}
 			return this;
+		},
+		//将当前所有元素设置为dom元素的子对象
+		appendTo:function(dom){
+			dom instanceof Docms.fun.init&&(dom=dom[0]);
+			for(var i=0;i<this.elems.length;dom.appendChild(this.elems[i++]));
+		},
+		append:function(dom){
+			dom instanceof Docms.fun.init&&(dom=dom.elems);
+			if(dom.nodeType==1){
+				this[0].appendChild(dom);
+			}else{
+				for(var i=0;i<dom.length;this[0].appendChild(dom[i++]));
+			}
+		},
+		insert:function(dom){
+			
 		},
 		//获取/设置样式,type:null/object/string,val:cssValue
 		css:function(type,val){
@@ -588,9 +610,27 @@
 					config.complete(xhr.status, xhr);
 				}
 				if (typeof config.success == "function") {
+					if(config.dataType.toLowerCase()=='json'){
+						config.success(eval('('+xhr.responseText+')'), xhr);
+						return;
+					}
 					config.success(xhr.responseText, xhr);
 				}
 			}
+		}
+	}
+	Docms.cookie=function(name,val){
+		val=val||'';
+		if(val){
+			document.cookie=name+'='+encodeURIComponent(val);
+		}else{
+			var reg=new RegExp('('+name+')=(.*?)($|(?=;))'),
+				arr=document.cookie.match(reg);
+			//返回值:["name=val", "name", "val"]
+			if(arr){
+				return decodeURIComponent(arr[2]);
+			}
+			return null;
 		}
 	}
 	function jsonToGet(data) {
@@ -613,6 +653,7 @@
 			async: true, //异步
 			cache: false, //缓存
 			data: {},
+			dataType:'',
 			success: function() {},
 			beforeSend: function() {},
 			complete: function() {}
