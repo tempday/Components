@@ -61,7 +61,6 @@
 					_tempTag.innerHTML=selector;
 					this.elems=_tempTag.children;
 				}
-				selector=selector.trim().replace(/\s{2,}/g," ");
 				//按id获取元素
 				/^#[^\s\.\#]+$/.test(selector)&&(
 					d.getElementById(selector.replace("#",""))&&(this.elems[0]=d.getElementById(selector.replace("#","")))
@@ -564,14 +563,13 @@
 	Docms.wWidth=function(){
 		return document.documentElement.clientWidth
 	}
-	//格式化选择器参数,返回一个对象
+	//格式化选择器参数
 	Docms.formatSelector=function(exp){
 		if(typeof(exp)!='string'){
 			throw new TypeError("Docms tips:formatSelector()"+exp);
 		}
 		//参数:type:结果类型,t:标签名,m:符号类型#|.,n:id|class的值
-		//type类型:0:标签,1:id,2.class,3.带标签的class
-		/#/.test(exp)&&(exp=exp.slice(exp.indexOf('#')));
+		//type类型:0:标签,1:id,2.带标签的id,3.class,4.带标签的class
 		var results={sn:null,type:null,t:null,m:null,n:null},
 			regTest=exp.match(/#|\.|([A-z]+[1-6]?)+/g);
 		if(regTest.length==1){
@@ -583,14 +581,19 @@
 				results.sn=1;
 				results.type='id';
 			}else if(regTest[0]=='.'){
-				results.sn=2;
+				results.sn=3;
 				results.type='class';
 			}
 			results.m=regTest[0];
 			results.n=regTest[1];
 		}else if(regTest.length==3){
-			results.sn=3;
-			results.type='class';
+			if(regTest[1]=='#'){
+				results.sn=2;
+				results.type='id';
+			}else if(regTest[1]=='.'){
+				results.sn=4;
+				results.type='class';
+			}
 			results.t=regTest[0].toUpperCase();
 			results.m=regTest[1];
 			results.n=regTest[2];
@@ -600,24 +603,21 @@
 	//根据选择器过滤元素
 	Docms.elemsFilter=function(elemsArr,exp){
 		elemsArr instanceof Docms.fun.init&&(elemsArr=elemsArr.elems);
-		//如果传入的元素数组和筛选条件不为空
 		if(elemsArr.length&&typeof(exp)=="string"&&exp){
-			//按类型格式化筛选条件
 			var result=Docms.formatSelector(exp);
-			//如果是类选择器,则生成对应的查询正则表达式
 			result.type=='class'&&(reg=Docms.regOfIndStr(result.n));
-			//遍历元素数组
 			for(var _temp=[],i=0;i<elemsArr.length;i++){
-				//如果筛选条件是id,只需查询一次
 				if(result.type=='id'&&elemsArr[i].id==result.n){
 					_temp.push(elemsArr[i]);
 					break;
-				//如果筛选条件是class,先判断class是否存在
 				}else if(result.type=='class'&&reg.test(elemsArr[i].className)){
-					//如果有标签则再判断标签名是否相等
-					result.t?
-						elemsArr[i].nodeName==result.t&&_temp.push(elemsArr[i]):
-						_temp.push(elemsArr[i]);
+					if(result.t){
+						if(elemsArr[i].nodeName==result.t){
+							_temp.push(elemsArr[i]);
+						}
+						continue;
+					}
+					_temp.push(elemsArr[i]);
 				}else if(result.type=='tag'&&elemsArr[i].nodeName==result.t){
 					_temp.push(elemsArr[i]);
 				}
@@ -766,9 +766,7 @@
 		DM=w.Docms=Docms;
 	}
 }(window,document);
-if(!String.prototype.trim){
-	String.prototype.trim=function(){return this.replace(/^\s*|\s*$/g,"")}
-}
+
 //-------------------------------------------------------------------------------------------------------------
 
 //兼容ie7/8,源自developer.mozilla.org
