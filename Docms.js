@@ -13,12 +13,12 @@
 			this.tempElems=[];//临时数组
 			this.isChaining=false;//是否正在链式操作
 			this.parent=null;//elems 第一个元素的父元素
-			this.children=[];//elems 第一个元素的子元素
+			this.children=null;//elems 第一个元素的子元素
 			this.source=[];//Docms()对象首次获取的元素
 			this.elemStack=[];
 			this.getElems(selector,origin);//实例化时立即进行第一次元素获取
 		},
-		//兼容ie7+,按("#id")|(".class")|("tag.class")|("tag") 获取元素,
+		//兼容ie7+,选择器selector的格式:"#id div ul>li a.link>.span",暂时不支持派生、伪类和条件选择器。
 			//origin:[可选]值类型可以是3种,1.DM对象,2.dom对象,3.选择器字符串;
 			//最后获得的元素放入数组elems中
 		//?多个选择器用逗号分隔("#id,.class")
@@ -60,39 +60,13 @@
 					var _tempTag=d.createElement('div');
 					_tempTag.innerHTML=selector;
 					this.elems=_tempTag.children;
-				}
-				selector=selector.trim().replace(/\s{2,}/g," ");
-				//按id获取元素
-				/^#[^\s\.\#]+$/.test(selector)&&(
-					d.getElementById(selector.replace("#",""))&&(this.elems[0]=d.getElementById(selector.replace("#","")))
-				);
-				//按标签名获取元素
-				/^!?[A-z]+[1-6]?$|^\*$/.test(selector)&&(
-					this.elems=origin.getElementsByTagName(selector)
-				);
-				//按class获取元素
-				if(/^([A-z]+[1-6]?)?\.[^\s]+$/.test(selector)){
-					var selArr=selector.match(/^([A-z]+[1-6]?)|\.|[^\s\.]+$/g);
-					//var selector=selector.replace(".","");
-					var tags,reg;
-					if(selArr.length==3){
-						tags=origin.getElementsByTagName(selArr[0]);
-						reg=Docms.regOfIndStr(selArr[2]);
-						for(var i=0;i<tags.length;i++){
-							reg.test(tags[i].className)&&(this.elems.push(tags[i]));
-						}
-					}else if(selArr.length==2){
-						if(d.getElementsByClassName){
-							this.elems=origin.getElementsByClassName(selArr[1]);
-						}else{
-							tags=origin.getElementsByTagName("*"),
-								reg=Docms.regOfIndStr(selArr[1]);
-							for(var i=0;i<tags.length;i++){
-								reg.test(tags[i].className)&&(this.elems.push(tags[i]));
-							}
-						}
+				}else{
+					selector=selector.trim().replace(/\s{2,}/g," ").match(/[^,]+/g);
+					for(var i=0;i<selector.length;i++){
+						this.elems=this.elems.concat(Docms.query(selector[i].trim(),origin));
 					}
 				}
+				
 			}
 			this.resetElems();
 			return this;
@@ -107,27 +81,18 @@
 				}
 			}
 			this.count=this.elems.length;
-			//兼容ie7/8,解决不支持类数组转换的问题
-			try{
-				this.elems=Array.prototype.slice.call(this.elems);
-				//以elems下标作为属性名将获取的元素添加到当前对象
-				for(var i=0;i<this.elems.length;this[i]=this.elems[i++]);
-			}catch(e){
-				//console.warn("Docms tips:resetElems() error");
-				for(var i=0,_temp=[];i<this.elems.length;i++){
-					this[i]=this.elems[i];
-					_temp.push(this.elems[i]);
-				}
-				this.elems=_temp;
-				_temp=null;
-			}
+			for(var i=0,_temp=[];i<this.elems.length;i++){
+				_temp.push(this.elems[i]);
+				this[i]=this.elems[i]
+			};
+			this.elems=_temp;
+			
 			//两个默认属性
 			if(this.elems[0]){
 				this.parent=this.elems[0].parentNode;
-				this.children=this.elems[0].children;
+				this.children=Docms.arrConvert(this.elems[0].children);
 			}else{
-				this.parent=null;
-				this.children=[];
+				this.children=this.parent=null;
 			}
 		},
 		//兼容ie7+,按属性获取后代元素,1.attrType:属性类型;2.attr:属性值[可选],如果元素类型不为空则此参数必须设置可以为"";3.tagName:查找标签类型[可选],如果缺省则查找全部类型
@@ -470,6 +435,119 @@
 		isElems:function(){
 		}
 	};//end Docms
+	//按选择器选择元素 格式"#id div ul>li a.link>.span"
+	//实现过程:1.拆分选择器,2.格式化选择器,3.筛选元素,4.遍历选择器1,重复2+3
+	Docms.query=function(selector,par){
+		par=par||d;
+		var elems,
+			selArr=selector.match(/\s+|>|[^\s>]+/g),
+			isLink=false,
+			pars=[par];
+		if(selArr.length){
+			for(var i=0,arr;i<selArr.length;i++){
+				elems=[];
+				if(selArr[i].trim()){
+					if(selArr[i]=='>'){
+						isLink=true;
+						continue;
+					}
+					//如果两个标签间有>,获取每个元素的子元素
+					if(isLink){
+						for(var n=0;n<pars.length;n++){
+							arr=pars[n].children;
+							if(arr.length){
+								elems=elems.concat(Docms.arrConvert(arr));
+							}
+						}
+						//根据选择器筛选全部子元素
+						console.log(i+":"+elems);
+						pars=Docms.elemsFilter(elems,selArr[i]);
+					}else{
+						//如果两个标签间是空格,获取每个元素所有后代元素
+						for(var n=0;n<pars.length;n++){
+						//使用单个子选择器获取元素
+							arr=Docms.getOne(selArr[i],pars[n]);
+							arr.length&&(elems=elems.concat(arr));
+						}
+						pars=elems;
+					}
+					
+					
+				}else{
+					isLink=false;
+				}
+			}
+			if(pars.length&&pars[0]!=par){
+				//元素数组去重
+				elems=[pars[0]];
+				for(var i=1,bool;i<pars.length;i++){
+					bool=!0;
+					for(var j=0;j<elems.length;j++){
+						if(pars[i]==elems[j]){
+							bool=!1;
+							break;
+						}
+					}
+					bool&&(elems.push(pars[i]));
+				}
+				return elems;
+			}else{
+				return [];
+			}
+		}
+	}
+	//单选择器获取元素
+	Docms.getOne=function(exp,par){
+		par=par||d;
+		//如果传入的元素数组和筛选条件不为空
+		if(typeof(exp)=="string"&&exp){
+			//按类型格式化筛选条件
+			var result=Docms.formatSelector(exp), _temp=[];
+			//如果筛选条件是id,只需查询一次
+			if(result.type=='id'){
+				_temp.push(par.getElementById(result.n));
+				return _temp;
+			}
+			//如果是单标签
+			if(result.type=='tag'){
+				_temp=par.getElementsByTagName(result.t);
+				if(_temp.length){
+					return Docms.arrConvert(_temp);
+				}
+			}
+			//如果是类选择器,则生成对应的查询正则表达式
+			if(result.type=='class'){
+				var reg=Docms.regOfIndStr(result.n);
+				//如果按class获取有效
+				if(par.getElementsByClassName){
+					var tags=par.getElementsByClassName(result.n);
+					if(tags.length){
+						if(result.t){
+							for(var i=0;i<tags.length;i++){
+								tags[i].nodeName==result.t&&(_temp.push(tags[i]));
+							}
+						}else{
+							_temp=Docms.arrConvert(tags);
+						}
+					}
+				}else{
+					var tags=par.getElementsByTagName("*");
+					for(var i=0;i<tags.length;i++){
+						
+						if(result.t){
+							reg.test(tags[i].className)&&tags[i].nodeName==result.t&&(_temp.push(tags[i]));
+						}else{
+							reg.test(tags[i].className)&&(_temp.push(tags[i]));
+						}
+					}
+				}
+			}
+			return _temp;
+		}else{
+			console.info("Docms tips:getOne() 参数格式不对");
+			return [];
+		}
+	}
 	//兼容ie7/8,firefox:获取事件或事件目标,ev=0:返回事件[默认可不填],ev=1:返回目标
 	Docms.getEventSrc=function(ev){
 		ev=ev==1?ev:0;
@@ -491,7 +569,8 @@
 		}
 		return new RegExp("^"+arg+"$|^"+arg+"(?=\\s)|(?:\\s)"+arg+"(?=\\s+)|(?:\\s)"+arg+"$",attr);
 	}
-	//暂时无法兼容ie7
+	/*
+	//暂时不使用
 	Docms.query=function(selector,parentArg,bool){
 		//是否进行多选,默认true;
 		bool=bool||true;
@@ -502,6 +581,7 @@
 		}
 		return bool?parentArg.querySelectorAll(selector):parentArg.querySelector(selector);
 	}
+	*/
 	//获取curr元素在兄弟元素中所在的下标
 	Docms.index=function(curr){
 		curr instanceof Docms.fun.init&&(curr=curr[0]);
@@ -573,7 +653,7 @@
 		//type类型:0:标签,1:id,2.class,3.带标签的class
 		/#/.test(exp)&&(exp=exp.slice(exp.indexOf('#')));
 		var results={sn:null,type:null,t:null,m:null,n:null},
-			regTest=exp.match(/#|\.|([A-z]+[1-6]?)+/g);
+			regTest=exp.match(/#|\.|[^#\.*]+|\*/g);
 		if(regTest.length==1){
 			results.sn=0;
 			results.type='tag';
@@ -603,17 +683,18 @@
 		//如果传入的元素数组和筛选条件不为空
 		if(elemsArr.length&&typeof(exp)=="string"&&exp){
 			//按类型格式化筛选条件
-			var result=Docms.formatSelector(exp);
+			var result=Docms.formatSelector(exp), _temp=[];
+			//如果筛选条件是id,只需查询一次
+			if(result.type=='id'){
+				_temp.push(d.getElementById(result.n));
+				return _temp;
+			}
 			//如果是类选择器,则生成对应的查询正则表达式
 			result.type=='class'&&(reg=Docms.regOfIndStr(result.n));
 			//遍历元素数组
-			for(var _temp=[],i=0;i<elemsArr.length;i++){
-				//如果筛选条件是id,只需查询一次
-				if(result.type=='id'&&elemsArr[i].id==result.n){
-					_temp.push(elemsArr[i]);
-					break;
+			for(var i=0;i<elemsArr.length;i++){
 				//如果筛选条件是class,先判断class是否存在
-				}else if(result.type=='class'&&reg.test(elemsArr[i].className)){
+				if(result.type=='class'&&reg.test(elemsArr[i].className)){
 					//如果有标签则再判断标签名是否相等
 					result.t?
 						elemsArr[i].nodeName==result.t&&_temp.push(elemsArr[i]):
@@ -624,7 +705,7 @@
 			}
 			return _temp;
 		}else{
-			console.info("Docms tips:testElems() invalid elemsArr+exp");
+			console.info("Docms tips:elemsFilter() invalid elemsArr+exp");
 			return [];
 		}
 	}
