@@ -156,11 +156,7 @@
 					}else if (this.elems[i].attachEvent){
 						this.elems[i].fn=fn;
 						this.elems[i].attachEvent('on'+type,this.elems[i].fn);
-						try{
-							delete this.elems[i].fn;
-						}catch(e){
-							this.elems[i].fn=null;
-						}
+						this.elems[i].removeAttribute('fn');
 					}
 				}
 			}
@@ -310,11 +306,7 @@
 			for(var i=0;i<this.elems.length;i++){
 				this.elems[i].fn=fn;
 				this.elems[i].fn(i,this.elems[i]);
-				try{
-					delete this.elems[i].fn;
-				}catch(e){
-					this.elems[i].fn=null;
-				}
+				this.elems[i].removeAttribute('fn');
 			}
 			return this;
 		},
@@ -739,7 +731,7 @@
 	Docms.arrConvert=function(arr){
 		try{
 			Docms.isArray(arr)||(arr=Array.prototype.slice.call(arr));
-		}catch(e){
+		}catch(err){
 			for(var i=0,_temp=[];i<arr.length;i++){
 				_temp[i]=arr[i];
 			}
@@ -801,7 +793,7 @@
 						var data=[];
 						try{
 							data=eval('('+xhr.responseText+')')
-						}catch(e){
+						}catch(err){
 							console.error('返回数据错误');
 						}
 						config.success(data, xhr);
